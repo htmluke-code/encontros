@@ -1,10 +1,56 @@
 # Detecção de encontros (tornozeleiras e medidas protetivas)
 
-Solução para o desafio de detectar encontros físicos (a menos de 20 metros) entre pessoas monitoradas, a partir de dados de GPS. Escrita em Node.js, sem nenhuma dependência externa.
+## O que é este projeto
 
-Se quiser uma explicação mais calma, passo a passo, tem o arquivo [EXPLICACAO.md](EXPLICACAO.md).
+Este é o meu trabalho para o desafio técnico de detecção de encontros. A situação do desafio é a seguinte:
 
-## Como rodar
+- algumas pessoas usam **tornozeleira eletrônica** (os monitorados, também chamados de agressores);
+- as **vítimas** com medida protetiva carregam um **rastreador portátil**;
+- cada aparelho registra a posição de GPS (latitude e longitude) a cada 5 segundos.
+
+O resultado é um arquivo enorme de linhas do tipo "a pessoa 7 estava neste ponto neste horário". Meu programa lê esse arquivo e descobre **em que momentos duas pessoas estiveram a menos de 20 metros uma da outra**.
+
+## Para que serve
+
+Cada encontro encontrado entra em um destes três tipos:
+
+| Tipo | O que significa |
+|---|---|
+| `protetiva` | uma vítima ficou perto de um agressor da lista de restrição dela (quebra da medida protetiva) |
+| `faccao` | dois monitorados da mesma facção ficaram perto um do outro |
+| `generico` | dois monitorados quaisquer ficaram perto um do outro |
+
+Com isso, quem acompanha esses casos consegue ver quando, onde e a que distância as pessoas se encontraram. Importante: o programa analisa arquivos de posições **já gravadas**. Ele não é um sistema de alerta em tempo real.
+
+**Entra** um arquivo de texto com uma linha por posição:
+
+```
+idMonitorado;faccaoMonitorado;timestamp;latitude;longitude;medidaProtetiva;idsRestricaoMedida
+```
+
+**Sai** um arquivo JSON com a lista de encontros, cada um com tipo, horário, as duas pessoas, as posições e a distância:
+
+```json
+{ "tipo": "faccao", "monitoradosEncontro": [40, 44], "timestamp": "2024-01-01 00:01:50",
+  "posicoes": { "40": { "lat": -10.07996, "lon": -37.08384 }, "44": { "lat": -10.07987, "lon": -37.08389 } },
+  "distanciaMetros": 11.406788673336607 }
+```
+
+## Como usar, passo a passo
+
+O jeito mais fácil é pela interface gráfica, sem digitar comandos:
+
+1. Instale o **Node.js** (versão LTS, em nodejs.org). É o único requisito.
+2. Abra a pasta do projeto e dê dois cliques em **`iniciar.bat`** (no Windows). Uma janela preta abre e, em seguida, o navegador.
+3. Na página, clique em **Baixar oficiais** para trazer os 7 datasets do desafio. Se você tiver um arquivo seu, pode arrastá-lo para a lateral.
+4. Clique em **Processar todos**. Aparece uma barra de progresso em cada dataset.
+5. Clique no nome de um dataset para ver os encontros em uma tabela. Clicando numa linha, aparece um desenho com as duas pessoas dentro do círculo de 20 metros.
+6. Use **Baixar JSON** para guardar o resultado. Os arquivos também ficam salvos na pasta `output/`.
+7. Quando terminar, feche a janela preta.
+
+Se preferir o terminal, veja a próxima seção. Para entender a ideia por trás do código, sem entrar em detalhes técnicos, leia o [EXPLICACAO.md](EXPLICACAO.md).
+
+## Como rodar pelo terminal
 
 Precisa do Node 18 ou mais novo.
 
