@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detector de encontros</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%23c0314a' stroke-width='2.5' stroke-dasharray='4 3'/%3E%3Ccircle cx='11' cy='19' r='3' fill='%2315232c'/%3E%3Ccircle cx='21' cy='13' r='3' fill='%2315232c'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --papel: #edf0ee;
+    --painel: #fafbfa;
+    --tinta: #15232c;
+    --suave: #5b6b73;
+    --linha: #d6ddda;
+    --linha-forte: #b4c0bc;
+    --hover: #e3e8e5;
+    --protetiva: #c0314a;
+    --faccao: #a86a0a;
+    --generico: #2a6a9e;
+    --ok: #1f7a4d;
+    --erro: #b3261e;
+    --fonte: "Bahnschrift", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --papel: #0e181e;
+      --painel: #13212a;
+      --tinta: #e6eef0;
+      --suave: #8fa3ab;
+      --linha: #22343d;
+      --linha-forte: #38505a;
+      --hover: #1b2e38;
+      --protetiva: #ff7088;
+      --faccao: #e8a93c;
+      --generico: #62aae3;
+      --ok: #5ccb93;
+      --erro: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--fonte);
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--tinta);
+    background: var(--papel);
+    font-variant-numeric: tabular-nums;
+  }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--generico); outline-offset: 2px; }
+
+  /* ---------- estrutura ---------- */
+  .topo {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 24px; height: 60px;
+    background: var(--painel); border-bottom: 1px solid var(--linha);
+  }
+  .topo h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: .01em; }
+  .topo p { margin: 0; color: var(--suave); font-size: 14px; }
+  .topo .sep { flex: 1; }
+  .area { display: grid; grid-template-columns: 380px 1fr; min-height: calc(100% - 60px); }
+  .lateral { background: var(--painel); border-right: 1px solid var(--linha); display: flex; flex-direction: column; }
+  .principal { padding: 28px 32px 48px; min-width: 0; }
+  @media (max-width: 860px) {
+    .area { grid-template-columns: 1fr; }
+    .lateral { border-right: 0; border-bottom: 1px solid var(--linha); }
+    .principal { padding: 20px 16px 40px; }
+    .topo { padding: 0 16px; }
+    .topo p { display: none; }
+  }
+
+  /* ---------- botões ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 8px 14px; border-radius: 6px; cursor: pointer;
+    background: transparent; border: 1px solid var(--linha-forte);
+    font-weight: 500; white-space: nowrap;
+  }
+  a.btn { text-decoration: none; color: inherit; }
+  .btn:hover:not(:disabled) { background: var(--hover); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primario { background: var(--tinta); color: var(--papel); border-color: var(--tinta); }
+  .btn.primario:hover:not(:disabled) { background: var(--tinta); filter: brightness(1.15); }
+  .btn.peq { padding: 5px 10px; font-size: 13px; }
+
+  /* ---------- lateral ---------- */
+  .acoes { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 20px 12px; }
+  .estado-acao { padding: 0 20px 12px; font-size: 13px; color: var(--suave); min-height: 22px; }
+  .estado-acao.erro { color: var(--erro); }
+  .solta {
+    margin: 0 20px 16px; padding: 14px; border: 1.5px dashed var(--linha-forte); border-radius: 8px;
+    color: var(--suave); font-size: 14px; text-align: center; cursor: pointer;
+  }
+  .solta:hover, .solta.sobre { background: var(--hover); border-color: var(--tinta); color: var(--tinta); }
+  .solta input { display: none; }
+  .solta .barra { margin-top: 8px; }
+  .lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--linha); overflow-y: auto; flex: 1; }
+  .linha {
+    display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px;
+    padding: 4px 12px 4px 20px; border-bottom: 1px solid var(--linha);
+    box-shadow: inset 3px 0 0 transparent;
+  }
+  .linha.ativa { background: var(--hover); box-shadow: inset 3px 0 0 var(--tinta); }
+  .linha-corpo {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+    background: none; border: 0; padding: 8px 0; text-align: left; cursor: pointer; min-width: 0;
+  }
+  .linha-corpo .nome { font-weight: 600; }
+  .linha-corpo .sub { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--suave); }
+  .linha-corpo .sub .feito { color: var(--ok); font-weight: 500; }
+  .linha.ausente .nome { color: var(--suave); font-weight: 500; }
+  .linha .prog { grid-column: 1 / -1; padding: 0 0 8px; }
+  .barra { height: 4px; border-radius: 2px; background: var(--linha); overflow: hidden; }
+  .barra > i { display: block; height: 100%; background: var(--tinta); transition: width .25s; }
+  .prog small { display: block; margin-top: 4px; font-size: 12px; color: var(--suave); }
+  @media (prefers-reduced-motion: reduce) { .barra > i { transition: none; } }
+
+  /* ---------- área principal ---------- */
+  .vazio { max-width: 460px; margin: 10vh auto 0; text-align: center; color: var(--suave); }
+  .vazio svg { width: 148px; height: 148px; margin-bottom: 12px; }
+  .vazio h2 { margin: 0 0 6px; color: var(--tinta); font-size: 20px; font-weight: 600; }
+  .vazio p { margin: 0 0 16px; }
+  .cabeca { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 16px; margin-bottom: 20px; }
+  .cabeca h2 { margin: 0 0 6px; font-size: 22px; font-weight: 600; }
+  .cabeca .sub-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .cabeca .meta { color: var(--suave); font-size: 14px; }
+  .selo { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 500; border: 1px solid currentColor; }
+  .selo.ok { color: var(--ok); }
+  .selo.dif { color: var(--erro); }
+
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .filtro {
+    display: flex; align-items: baseline; gap: 10px; padding: 10px 16px; min-width: 132px;
+    border: 1px solid var(--linha-forte); border-radius: 8px; background: var(--painel); cursor: pointer; text-align: left;
+  }
+  .filtro:hover { background: var(--hover); }
+  .filtro[aria-pressed="true"] { border-color: var(--tinta); box-shadow: inset 0 0 0 1px var(--tinta); }
+  .filtro .n { font-size: 28px; font-weight: 600; line-height: 1; }
+  .filtro .r { font-size: 13px; color: var(--suave); display: flex; align-items: center; gap: 6px; }
+  .ponto { width: 9px; height: 9px; border-radius: 50%; background: var(--suave); display: inline-block; }
+  .t-protetiva .ponto, .ponto.t-protetiva { background: var(--protetiva); }
+  .t-faccao .ponto, .ponto.t-faccao { background: var(--faccao); }
+  .t-generico .ponto, .ponto.t-generico { background: var(--generico); }
+
+  .tabela-caixa { background: var(--painel); border: 1px solid var(--linha); border-radius: 8px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-weight: 500; font-size: 13px; color: var(--suave); padding: 10px 16px; border-bottom: 1px solid var(--linha); white-space: nowrap; }
+  td { padding: 10px 16px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th.num, td.num { text-align: right; }
+  tr.enc { cursor: pointer; }
+  tr.enc:hover td { background: var(--hover); }
+  tr.enc:focus-visible { outline-offset: -2px; }
+  tr:last-child td { border-bottom: 0; }
+  .tag { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; }
+  tr.det td { background: var(--papel); padding: 18px 20px; }
+  .det-grade { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+  .det-grade svg { width: 220px; height: 220px; flex: none; }
+  .det-info { min-width: 220px; display: grid; gap: 10px; }
+  .det-info dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; }
+  .det-info dt { color: var(--suave); }
+  .det-info dd { margin: 0; }
+  .det-info a { color: var(--generico); }
+  .mais { display: flex; justify-content: center; padding: 14px; border-top: 1px solid var(--linha); }
+  .aviso-vazio { padding: 28px; text-align: center; color: var(--suave); }
+
+  .msg-erro { padding: 12px 16px; border: 1px solid var(--erro); color: var(--erro); border-radius: 8px; margin-bottom: 16px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+    <circle cx="16" cy="16" r="13" fill="none" stroke="var(--protetiva)" stroke-width="2.5" stroke-dasharray="4 3"/>
+    <circle cx="11" cy="19" r="3" fill="var(--tinta)"/>
+    <circle cx="21" cy="13" r="3" fill="var(--tinta)"/>
+  </svg>
+  <h1>Detector de encontros</h1>
+  <p>Monitorados e medidas protetivas, raio de 20 metros</p>
+  <span class="sep"></span>
+</header>
+
+<main class="area">
+  <aside class="lateral" aria-label="Datasets">
+    <div class="acoes">
+      <button class="btn" id="btnBaixar">Baixar oficiais</button>
+      <button class="btn primario" id="btnTodos">Processar todos</button>
+    </div>
+    <div class="estado-acao" id="estadoAcao" role="status" aria-live="polite"></div>
+
+    <label class="solta" id="solta">
+      <input type="file" id="arquivo" accept=".txt,text/plain">
+      <span id="soltaTexto">Arraste um arquivo .txt aqui ou clique para escolher</span>
+      <div class="barra" id="soltaBarra" hidden><i style="width:0%"></i></div>
+    </label>
+
+    <ul class="lista" id="lista"></ul>
+  </aside>
+
+  <section class="principal" id="principal" aria-live="polite"></section>
+</main>
+
+<script>
+'use strict';
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const api = async (url, opts = {}) => {
+  const r = await fetch(url, { ...opts, headers: { 'x-gui': '1', ...(opts.headers || {}) } });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.erro || 'Erro ' + r.status);
+  return d;
+};
+
+const fmtNum = (n) => Number(n).toLocaleString('pt-BR');
+const fmtDist = (d) => Number(d).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtTam = (b) => (b >= 1e9 ? (b / 1e9).toFixed(2).replace('.', ',') + ' GB' : b >= 1e6 ? (b / 1e6).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB');
+const fmtTempo = (ms) => (ms < 1000 ? Math.round(ms) + ' ms' : (ms / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' s');
+const TIPOS = { protetiva: 'Protetiva', faccao: 'Facção', generico: 'Genérico' };
+
+let estado = { datasets: [], jobs: [] };
+let sel = null;           // dataset aberto
+let filtro = '';          // '' = todos
+let dados = null;         // resposta de /api/resultado
+let itens = [];
+let abertos = new Set();
+let erroPrincipal = '';
+let jobsConcluidosVistos = new Set();
+
+/* ---------------- estado e lista ---------------- */
+
+async function atualizar() {
+  try {
+    estado = await api('/api/estado');
+  } catch (e) {
+    $('#estadoAcao').textContent = 'Sem conexão com o servidor. Verifique se a janela do terminal continua aberta.';
+    $('#estadoAcao').className = 'estado-acao erro';
+    return;
+  }
+  // Um processamento terminou? Recarrega o resultado se for o dataset aberto.
+  for (const j of estado.jobs) {
+    if (j.tipo === 'processar' && j.estado === 'ok' && !jobsConcluidosVistos.has(j.id)) {
+      jobsConcluidosVistos.add(j.id);
+      if (j.alvo === sel) carregarResultado(true);
+    }
+    if (j.estado === 'erro' && !jobsConcluidosVistos.has(j.id)) jobsConcluidosVistos.add(j.id);
+  }
+  renderLista();
+  renderAcoes();
+  if (!sel) renderPrincipal();
+}
+
+const jobAtivo = (tipo, alvo) => estado.jobs.find((j) => j.tipo === tipo && (alvo === undefined || j.alvo === alvo) && (j.estado === 'espera' || j.estado === 'rodando'));
+
+function renderAcoes() {
+  const baixando = jobAtivo('baixar');
+  const algumProc = estado.jobs.some((j) => j.tipo === 'processar' && (j.estado === 'espera' || j.estado === 'rodando'));
+  const existentes = estado.datasets.filter((d) => d.existe);
+  const faltam = estado.datasets.some((d) => d.oficial && !d.existe);
+  $('#btnBaixar').disabled = !!baixando || !faltam;
+  $('#btnBaixar').textContent = faltam ? 'Baixar oficiais' : 'Oficiais baixados';
+  $('#btnTodos').disabled = !existentes.length || algumProc;
+
+  const el = $('#estadoAcao');
+  el.className = 'estado-acao';
+  const ultimoErro = [...estado.jobs].reverse().find((j) => j.estado === 'erro');
+  if (baixando) el.textContent = `${baixando.etapa}, ${baixando.pct}%`;
+  else if (ultimoErro && ultimoErro.id === Math.max(...estado.jobs.map((j) => j.id))) {
+    el.textContent = ultimoErro.erro;
+    el.className = 'estado-acao erro';
+  } else if (!existentes.length) el.textContent = 'Comece baixando os datasets oficiais ou arrastando um arquivo.';
+  else el.textContent = '';
+}
+
+function renderLista() {
+  const ul = $('#lista');
+  ul.innerHTML = estado.datasets.map((d) => {
+    const job = jobAtivo('processar', d.nome);
+    let sub;
+    if (job) sub = `<span>${esc(job.etapa)}</span>`;
+    else if (!d.existe) sub = '<span>Não baixado</span>';
+    else {
+      sub = `<span>${fmtTam(d.tamanho)}</span>`;
+      if (d.resumo) sub += `<span class="feito">${fmtNum(d.resumo.total)} ${d.resumo.total === 1 ? 'encontro' : 'encontros'}</span>`;
+      else sub += '<span>Ainda não processado</span>';
+    }
+    const prog = job ? `<div class="prog"><div class="barra"><i style="width:${job.pct}%"></i></div><small>${job.estado === 'espera' ? 'Na fila' : job.pct + '%'}</small></div>` : '';
+    return `<li class="linha ${sel === d.nome ? 'ativa' : ''} ${d.existe ? '' : 'ausente'}" data-nome="${esc(d.nome)}">
+      <button class="linha-corpo" data-acao="abrir" ${d.existe ? '' : 'disabled'}>
+        <span class="nome">${esc(d.nome)}</span><span class="sub">${sub}</span>
+      </button>
+      <button class="btn peq" data-acao="processar" ${!d.existe || job ? 'disabled' : ''}>${d.resumo ? 'Reprocessar' : 'Processar'}</button>
+      ${prog}
+    </li>`;
+  }).join('');
+}
+
+$('#lista').addEventListener('click', (ev) => {
+  const btn = ev.target.closest('button[data-acao]');
+  if (!btn) return;
+  const nome = btn.closest('li').dataset.nome;
+  if (btn.dataset.acao === 'processar') processar([nome], true);
+  else abrir(nome);
+});
+
+async function processar(nomes, abrirAoFim) {
+  try {
+    await api('/api/processar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ arquivos: nomes }) });
+    if (abrirAoFim && nomes.length === 1) { sel = nomes[0]; dados = null; itens = []; erroPrincipal = ''; renderPrincipal(); }
+  } catch (e) {
+    $('#estadoAcao').textContent = e.message;
+    $('#estadoAcao').className = 'estado-acao erro';
+  }
+  atualizar();
+}
+
+$('#btnTodos').addEventListener('click', () => processar(estado.datasets.filter((d) => d.existe).map((d) => d.nome), false));
+$('#btnBaixar').addEventListener('click', async () => {
+  try { await api('/api/baixar', { method: 'POST' }); } catch (e) { $('#estadoAcao').textContent = e.message; $('#estadoAcao').className = 'estado-acao erro'; }
+  atualizar();
+});
+
+/* ---------------- envio de arquivo ---------------- */
+
+const solta = $('#solta');
+['dragenter', 'dragover'].forEach((t) => solta.addEventListener(t, (e) => { e.preventDefault(); solta.classList.add('sobre'); }));
+['dragleave', 'drop'].forEach((t) => solta.addEventListener(t, (e) => { e.preventDefault(); solta.classList.remove('sobre'); }));
+solta.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) enviar(e.dataTransfer.files[0]); });
+$('#arquivo').addEventListener('change', (e) => { if (e.target.files[0]) enviar(e.target.files[0]); e.target.value = ''; });
+
+function enviar(arq) {
+  const texto = $('#soltaTexto'), barra = $('#soltaBarra');
+  if (!/\.txt$/i.test(arq.name)) { texto.textContent = 'Escolha um arquivo com extensão .txt.'; return; }
+  barra.hidden = false;
+  texto.textContent = `Enviando ${arq.name}...`;
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/upload?nome=' + encodeURIComponent(arq.name));
+  xhr.setRequestHeader('x-gui', '1');
+  xhr.upload.onprogress = (e) => { if (e.lengthComputable) $('i', barra).style.width = Math.round((e.loaded / e.total) * 100) + '%'; };
+  xhr.onload = () => {
+    barra.hidden = true; $('i', barra).style.width = '0%';
+    let r = {}; try { r = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status === 200) { texto.textContent = `${arq.name} adicionado. Clique em Processar.`; atualizar(); }
+    else texto.textContent = r.erro || 'Não foi possível enviar o arquivo.';
+  };
+  xhr.onerror = () => { barra.hidden = true; texto.textContent = 'O envio falhou. Confira se o servidor continua aberto.'; };
+  xhr.send(arq);
+}
+
+/* ---------------- resultado ---------------- */
+
+function abrir(nome) {
+  sel = nome; filtro = ''; dados = null; itens = []; abertos = new Set(); erroPrincipal = '';
+  renderLista();
+  const d = estado.datasets.find((x) => x.nome === nome);
+  if (d && d.resumo) carregarResultado(true); else renderPrincipal();
+  if (window.matchMedia('(max-width: 860px)').matches) $('#principal').scrollIntoView(); // no celular, leva até o resultado
+}
+
+async function carregarResultado(reiniciar) {
+  if (!sel) return;
+  const nome = sel;
+  const inicio = reiniciar ? 0 : itens.length;
+  try {
+    const r = await api(`/api/resultado?arquivo=${encodeURIComponent(nome)}&tipo=${encodeURIComponent(filtro)}&inicio=${inicio}&limite=200`);
+    if (sel !== nome) return;
+    dados = r;
+    itens = reiniciar ? r.itens : itens.concat(r.itens);
+    erroPrincipal = '';
+  } catch (e) {
+    erroPrincipal = e.message;
+  }
+  renderPrincipal();
+}
+
+function chaveItem(e) { return e.timestamp + '|' + e.monitoradosEncontro.join(',') + '|' + e.tipo; }
+
+function renderPrincipal() {
+  const el = $('#principal');
+  if (!sel) {
+    const temDados = estado.datasets.some((d) => d.existe);
+    el.innerHTML = `<div class="vazio">
+      <svg viewBox="0 0 160 160" aria-hidden="true">
+        <circle cx="80" cy="80" r="70" fill="none" stroke="var(--linha-forte)" stroke-width="2" stroke-dasharray="6 5"/>
+        <circle cx="62" cy="92" r="7" fill="var(--tinta)"/><circle cx="98" cy="68" r="7" fill="var(--protetiva)"/>
+        <line x1="62" y1="92" x2="98" y2="68" stroke="var(--suave)" stroke-width="1.5" stroke-dasharray="3 3"/>
+      </svg>
+      <h2>${temDados ? 'Escolha um dataset' : 'Nenhum dataset ainda'}</h2>
+      <p>${temDados ? 'Clique em Processar ao lado e o resultado aparece aqui, com o detalhe de cada encontro.' : 'Baixe os datasets oficiais ou arraste um arquivo .txt para a lateral. Depois é só processar.'}</p>
+    </div>`;
+    return;
+  }
+  const d = estado.datasets.find((x) => x.nome === sel);
+  if (!d) { el.innerHTML = ''; return; }
+  if (!dados) {
+    const job = jobAtivo('processar', sel);
+    el.innerHTML = `<div class="cabeca"><h2>${esc(sel)}</h2></div>
+      ${erroPrincipal && !job ? `<div class="msg-erro">${esc(erroPrincipal)}</div>` : ''}
+      <div class="vazio" style="margin-top:6vh"><h2>${job ? 'Processando...' : 'Ainda não processado'}</h2>
+      <p>${job ? esc(job.etapa) + ', ' + job.pct + '%' : 'Processe este dataset para ver os encontros.'}</p>
+      ${job || !d.existe ? '' : '<button class="btn primario" id="btnProcAqui">Processar ' + esc(sel) + '</button>'}</div>`;
+    const b = $('#btnProcAqui'); if (b) b.onclick = () => processar([sel], true);
+    return;
+  }
+
+  const c = dados.comparacao;
+  let selo = '';
+  if (c) {
+    const dif = c.faltando + c.sobrando + c.tipoDiferente;
+    selo = dif === 0
+      ? `<span class="selo ok">Igual ao gabarito: ${fmtNum(c.certos)} de ${fmtNum(c.esperados)}</span>`
+      : `<span class="selo dif">Difere do gabarito: ${c.faltando} faltando, ${c.sobrando} a mais, ${c.tipoDiferente} com tipo diferente</span>`;
+  }
+  const meta = [];
+  if (dados.resumo && dados.resumo.ms) meta.push('Processado em ' + fmtTempo(dados.resumo.ms));
+  meta.push(fmtTam(d.tamanho));
+
+  const filtroBtn = (chave, rotulo, n) => `<button class="filtro ${chave ? 't-' + chave : ''}" data-filtro="${chave}" aria-pressed="${filtro === chave}">
+      <span class="n">${fmtNum(n)}</span><span class="r">${chave ? '<i class="ponto"></i>' : ''}${rotulo}</span></button>`;
+
+  const linhas = itens.map((e, i) => {
+    const [a, b] = e.monitoradosEncontro;
+    const k = chaveItem(e), aberto = abertos.has(k);
+    let html = `<tr class="enc t-${esc(e.tipo)}" data-i="${i}" tabindex="0" aria-expanded="${aberto}">
+      <td><span class="tag"><i class="ponto"></i>${esc(TIPOS[e.tipo] || e.tipo)}</span></td>
+      <td>${esc(e.timestamp)}</td><td>${a} e ${b}</td><td class="num">${fmtDist(e.distanciaMetros)} m</td></tr>`;
+    if (aberto) html += `<tr class="det t-${esc(e.tipo)}"><td colspan="4">${detalhe(e)}</td></tr>`;
+    return html;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="cabeca">
+      <div><h2>${esc(sel)}</h2><div class="sub-cab">${selo}<span class="meta">${meta.join(', ')}</span></div></div>
+      <a class="btn" href="/api/saida?arquivo=${encodeURIComponent(sel)}">Baixar JSON</a>
+    </div>
+    ${erroPrincipal ? `<div class="msg-erro">${esc(erroPrincipal)}</div>` : ''}
+    <div class="filtros" role="group" aria-label="Filtrar por tipo">
+      ${filtroBtn('', 'Todos os encontros', dados.total)}
+      ${filtroBtn('protetiva', 'Protetiva', dados.porTipo.protetiva)}
+      ${filtroBtn('faccao', 'Facção', dados.porTipo.faccao)}
+      ${filtroBtn('generico', 'Genérico', dados.porTipo.generico)}
+    </div>
+    <div class="tabela-caixa">
+      ${itens.length ? `<table><thead><tr><th>Tipo</th><th>Horário</th><th>Monitorados</th><th class="num">Distância</th></tr></thead><tbody>${linhas}</tbody></table>`
+        : '<div class="aviso-vazio">Nenhum encontro desse tipo neste dataset.</div>'}
+      ${itens.length < dados.filtrados ? `<div class="mais"><button class="btn" id="btnMais">Mostrar mais (${fmtNum(dados.filtrados - itens.length)} restantes)</button></div>` : ''}
+    </div>`;
+}
+
+/* Diagrama em escala: os dois monitorados dentro do círculo de 20 m. */
+function detalhe(e) {
+  const [a, b] = e.monitoradosEncontro;
+  const pa = e.posicoes[a], pb = e.posicoes[b];
+  const K = 111195, PX = 5; // metros por grau; pixels por metro (20 m = 100 px)
+  const latM = (pa.lat + pb.lat) / 2;
+  const dx = (pb.lon - pa.lon) * Math.cos((latM * Math.PI) / 180) * K;
+  const dy = (pb.lat - pa.lat) * K;
+  const cx = 110, cy = 110;
+  const ax = cx - (dx / 2) * PX, ay = cy + (dy / 2) * PX, bx = cx + (dx / 2) * PX, by = cy - (dy / 2) * PX;
+  const cor = `var(--${e.tipo in TIPOS ? e.tipo : 'generico'})`;
+  const lat = ((pa.lat + pb.lat) / 2).toFixed(5), lon = ((pa.lon + pb.lon) / 2).toFixed(5);
+  const lado = (x) => (x < cx ? -1 : 1);
+  return `<div class="det-grade">
+    <svg viewBox="0 0 220 220" role="img" aria-label="Monitorados ${a} e ${b} a ${fmtDist(e.distanciaMetros)} metros, dentro do raio de 20 metros">
+      <circle cx="${cx}" cy="${cy}" r="100" fill="none" stroke="var(--linha-forte)" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="${cx}" y="30" text-anchor="middle" font-size="11" fill="var(--suave)">limite de 20 m</text>
+      <line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="${cor}" stroke-width="2"/>
+      <circle cx="${ax}" cy="${ay}" r="7" fill="${cor}"/><circle cx="${bx}" cy="${by}" r="7" fill="${cor}"/>
+      <text x="${ax + lado(ax) * 12}" y="${ay + 4}" text-anchor="${lado(ax) < 0 ? 'end' : 'start'}" font-size="12" font-weight="600" fill="var(--tinta)">${a}</text>
+      <text x="${bx + lado(bx) * 12}" y="${by + 4}" text-anchor="${lado(bx) < 0 ? 'end' : 'start'}" font-size="12" font-weight="600" fill="var(--tinta)">${b}</text>
+      <text x="${cx}" y="${cy + 38}" text-anchor="middle" font-size="12" fill="var(--suave)">${fmtDist(e.distanciaMetros)} m</text>
+    </svg>
+    <div class="det-info">
+      <dl>
+        <dt>Monitorado ${a}</dt><dd>${pa.lat}, ${pa.lon}</dd>
+        <dt>Monitorado ${b}</dt><dd>${pb.lat}, ${pb.lon}</dd>
+        <dt>Distância</dt><dd>${fmtDist(e.distanciaMetros)} metros</dd>
+      </dl>
+      <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" rel="noopener noreferrer">Abrir o local no mapa</a>
+    </div>
+  </div>`;
+}
+
+$('#principal').addEventListener('click', (ev) => {
+  const f = ev.target.closest('[data-filtro]');
+  if (f) { filtro = f.dataset.filtro; abertos = new Set(); carregarResultado(true); return; }
+  if (ev.target.id === 'btnMais') { carregarResultado(false); return; }
+  if (ev.target.closest('a')) return;
+  const tr = ev.target.closest('tr.enc');
+  if (tr) alternar(tr);
+});
+$('#principal').addEventListener('keydown', (ev) => {
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('tr.enc')) { ev.preventDefault(); alternar(ev.target); }
+});
+function alternar(tr) {
+  const e = itens[Number(tr.dataset.i)];
+  if (!e) return;
+  const k = chaveItem(e);
+  abertos.has(k) ? abertos.delete(k) : abertos.add(k);
+  renderPrincipal();
+}
+
+/* ---------------- início ---------------- */
+renderPrincipal();
+atualizar();
+setInterval(atualizar, 800);
+</script>
+</body>
+</html>

@@ -60,7 +60,7 @@ function garantir(ds) {
  * estoura o limite de ~512 MB do Node em datasets grandes).
  * Remove aspas dos campos (ex.: timestamp vem como "2024-01-01 00:05:15").
  */
-function lerDataset(caminho, tamBuffer = 1 << 24) {
+function lerDataset(caminho, tamBuffer = 1 << 24, onProgresso = null) {
   const ds = novoDataset();
   const tsMapa = new Map();
   const faccaoMapa = new Map();
@@ -128,12 +128,16 @@ function lerDataset(caminho, tamBuffer = 1 << 24) {
 
   const fd = fs.openSync(caminho, 'r');
   try {
+    const totalBytes = fs.fstatSync(fd).size;
+    let lidoTotal = 0;
     const buf = Buffer.allocUnsafe(tamBuffer);
     const dec = new StringDecoder('utf8');
     let resto = '';
     for (;;) {
       const lidos = fs.readSync(fd, buf, 0, tamBuffer, null);
       if (lidos === 0) break;
+      lidoTotal += lidos;
+      if (onProgresso) onProgresso(totalBytes > 0 ? lidoTotal / totalBytes : 1);
       const texto = resto + dec.write(buf.subarray(0, lidos));
       let ini = 0;
       for (;;) {
@@ -187,7 +191,7 @@ function classificarPar(ds, i, j) {
  * grade espacial de ~21 m: só compara pontos da mesma célula e das 8
  * vizinhas, em vez de todos contra todos.
  */
-function detectar(ds) {
+function detectar(ds, onProgresso = null) {
   const { n, ids, ts, lat, lon, tsLista } = ds;
   const resultado = [];
   const nTs = tsLista.length;
@@ -221,7 +225,9 @@ function detectar(ds) {
   const seq = Array.from({ length: nTs }, (_, i) => i);
   seq.sort((a, b) => (tsLista[a] < tsLista[b] ? -1 : tsLista[a] > tsLista[b] ? 1 : 0));
 
+  let feitos = 0;
   for (const t of seq) {
+    if (onProgresso && (feitos++ & 255) === 0) onProgresso(feitos / nTs);
     const s = inicio[t];
     const m = inicio[t + 1] - s;
     if (m < 2) continue;

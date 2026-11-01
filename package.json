@@ -5,8 +5,11 @@
   "main": "src/detect.js",
   "scripts": {
     "start": "node src/index.js --all",
-    "test": "node test/teste.js"
+    "test": "node test/teste.js",
+    "gui": "node src/server.js"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "MIT"
 }
